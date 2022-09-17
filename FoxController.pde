@@ -29,9 +29,10 @@ class FoxController {
   int prevTargetMovement;
 
   boolean wasOnTrap = false;
+  
+  boolean randomState = false;
 
-  int randomState = 0;
-
+  // just for better debuging
   String movements[]  = {"", "RIGHT", "LEFT", "UP", "DOWN"};
 
   FoxController(Fox fox, Map map) {
@@ -53,76 +54,65 @@ class FoxController {
   }
 
   void action() {
-    //fox.move(fox.UP);
-    if (isFirstStep) readScene();
-    isFirstStep=false;
-    /*
-    beginShape();
-     noFill();
-     vertex(width/2, height/2);
-     for (Collectible c : collectibles) {
-     vertex(c.x, c.y);
-     }
-     endShape();
-     */
-
-    float angle = getCurrentAngle();
-    println(angle);
-
+    
+    // create distance vector to the next target collectable
     PVector dist = distNextTarget();
-    // println("dist", dist);
 
-    stroke(0, 0, 255);
-    noFill();
-
-
-
-    if (randomState == 0) {
-      triangle(foxX, foxY, nextTarget.x, nextTarget.y, foxX-dist.x, nextTarget.y+dist.y);
-      // walking on straight lines
-      if (dist.x > -foxRadius && dist.x < foxRadius) {
-        if (dist.y < 0) {
-          nextTargetMovement=fox.DOWN;
-        } else {
-          nextTargetMovement=fox.UP;
-        }
-      } else {
-        if (foxX < foxX-dist.x) {
+    // random state is a way to attempt a different triangle path after the fox waas close to the trap, avoiding most infinite loops (but apparenetly not all)
+    if (randomState) {
+      //debug triangle 
+      //stroke(255, 0, 0);
+      //triangle(foxX, foxY, nextTarget.x, nextTarget.y, foxX-dist.x, nextTarget.y+dist.y);
+      
+      // walking on straight lines...
+      if (dist.y > -foxRadius && dist.y < foxRadius) {
+        // first walk right left
+        if (dist.x < 0) {
           nextTargetMovement=fox.RIGHT;
         } else {
           nextTargetMovement=fox.LEFT;
         }
+      } else {
+        // then up down
+        if (dist.y < 0) {
+          nextTargetMovement=fox.DOWN;
+        } else {
+          nextTargetMovement=fox.UP;
+        }
       }
     } else {
-      triangle(foxX, foxY, nextTarget.x, nextTarget.y, foxX, nextTarget.y);
+      //debug triangle 
+      //stroke(0, 255, 0);
+      //triangle(foxX, foxY, nextTarget.x, nextTarget.y, foxX, nextTarget.y);
+      
       // walking on straight lines
       if (dist.x > -foxRadius && dist.x < foxRadius) {
+        // first walk up and down
         if (dist.y < 0) {
           nextTargetMovement=fox.DOWN;
         } else {
           nextTargetMovement=fox.UP;
         }
       } else {
-        if (foxX < foxX-dist.x) {
+        if (dist.x < 0) {
           nextTargetMovement=fox.RIGHT;
         } else {
           nextTargetMovement=fox.LEFT;
         }
       }
     }
-
-
-    text("nextTargetMovement:" + movements[nextTargetMovement], foxX, foxY-30);
-
-    if (distanceToClosestTrap() < 80) {
+    
+    // if its close to a trap...
+    if (distanceToClosestTrap() < 70) {
       prevDistTrap = distanceToClosestTrap();
       Trap closestTrap = getClosestTrap();
       PVector trapDist = PVectorToClosestTrap();
-      println("CLOSE TRAP!!!", PVectorToClosestTrap());
-      stroke(255, 0, 0);
-      noFill();
-      triangle(foxX, foxY, closestTrap.x, closestTrap.y, foxX-trapDist.x, getClosestTrap().y+trapDist.y);
 
+      //println("CLOSE TRAP!!!", PVectorToClosestTrap());
+      //noFill();
+      //triangle(foxX, foxY, closestTrap.x, closestTrap.y, foxX-trapDist.x, getClosestTrap().y+trapDist.y);
+      
+      // if the fox was previously going on vertical, the fox escapes the trap from the sides
       if (prevTargetMovement == fox.DOWN || prevTargetMovement == fox.UP) {
         // if it was going left or right, escape from trap by going up or down
         text("RUN AWAY SIDE", foxX +20, foxY);
@@ -131,6 +121,7 @@ class FoxController {
         } else {
           nextMovement=fox.LEFT;
         }
+       // if the fox was previously going on sides, the fox escapes the trap from the verticals
       } else if (prevTargetMovement == fox.LEFT || prevTargetMovement == fox.RIGHT) {
         // if it was going up or down, escape from trap by going left or right
         text("RUN AWAY VERTICAL", foxX +20, foxY);
@@ -140,49 +131,25 @@ class FoxController {
           nextMovement=fox.UP;
         }
       }
-      randomState=int(random(1));
+      // switch between states after it was on a trap
+      randomState = !randomState;
     } else {
+      // store intended target path
       prevTargetMovement=nextTargetMovement;
       nextMovement = nextTargetMovement;
     }
-
+  
     fox.move(nextMovement);
-
-    // Add your code here!
-
-    // All necessary input information is in
-    // - collectibles
-    // - traps
-    // - foxX, foxY, foxRadius
-
-    // Fox is moved by
-    // - fox.move(fox.UP);
-    // - fox.move(fox.DOWN);
-    // - fox.move(fox.LEFT);
-    // - fox.move(fox.RIGHT);
   }
-
-  void readScene () {
-    noFill();
-    PVector lastPVector = new PVector(width/2, height/2);
-    for (Collectible c : collectibles) {
-      PVector currentPVector = new PVector(c.x, c.y);
-      float a = PVector.angleBetween(currentPVector, lastPVector);
-      lastPVector=currentPVector;
-      angles.add(a);
-      println("a", a);
-    }
-    //println(angles);
-  }
-
+  
+  // not used code, for the angled walk attempt
   float getCurrentAngle () {
-
     float a1 = PVector.angleBetween(new PVector(foxX-width/2, foxY-height/2), new PVector(nextTarget.x-foxX, nextTarget.y-foxY));
-
     float a2 = PVector.angleBetween(new PVector(foxX-width/2, foxY-height/2), new PVector(nextTarget.x-foxX, nextTarget.y-foxY));
     return degrees(a1);
   }
-
+  
+  // get distance of next target
   PVector distNextTarget() {
     return new PVector(foxX - nextTarget.x, foxY - nextTarget.y);
   }
@@ -195,7 +162,7 @@ class FoxController {
     }
     return dist;
   }
-
+  
   Collectible getClosestCollectible() {
     float dist = 999999;
     int closestCollectibleIndex = 0;
@@ -244,23 +211,4 @@ class FoxController {
     PVector result = target.sub(origin);
     return result;
   }
-}
-
-float angleBetweenPV_PV(PVector a, PVector mousePV) {
-
-  // calc angle : the core of the sketch
-
-  PVector d = new PVector();
-
-  // calc angle
-  pushMatrix();
-  translate(a.x, a.y);
-  // delta
-  d.x = mousePV.x - a.x;
-  d.y = mousePV.y - a.y;
-  // angle
-  float angle1 = atan2(d.y, d.x);
-  popMatrix();
-
-  return angle1;
 }
